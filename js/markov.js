@@ -109,7 +109,7 @@ class MarkovChain {
     getNextNodeId() {
         const currentNodeEdges = this.getNodeEdgesById(this.currentNodeId);
         const pSum = currentNodeEdges.reduce((sum, edge) => sum += edge.probability, 0);
-        if (pSum === 1) {
+        if (pSum >= 0.99) {
             let roll = Math.random();
             for (const edge of currentNodeEdges) {
                 roll -= edge.probability;
@@ -171,11 +171,12 @@ function detectAndHandleNodeSelection(e) {
         if (Math.hypot((node.x - x), (node.y - y)) < node.r) {//If click was within radius of node.
             node.isSelected ^= 1;//Toggle node's isSelected property.
             node.selectionDate = Date.now();//Add click date to track selection order.
-            //TODO: display 
+            //TODO: display
             return true;
         }
     }
     deselectAllNodes();//If no node has been clicked, deselect all of them.
+    emptyNodeInfoDiv();
     return false;
 }
 
@@ -234,6 +235,10 @@ function handleKeyboardCommand(e) {
         app.state.mode ^= 1;
     }else if (code === 46) {//delete: delete selected nodes and edges
         app.chain.deleteSelectedNodesAndRelatedEdges();
+    }else if(code === 73) {//i: display selected node's info
+        displaySelectedNodeInfo();
+    }else if(code === 85) {//u: update selected node from input
+        updateNodeFromInput();
     }
 }
 
@@ -312,11 +317,14 @@ function renderEdgeIndicators(context, nodes, edges) {
     });    
 }
 
+function emptyNodeInfoDiv() {
+    app.nodeInfoDiv.innerHTML = "";
+}
+
 function displaySelectedNodeInfo() {
     const selectedNode = app.chain.getSelectedNodes()[0];
-    console.log(selectedNode)
     if (selectedNode) {
-        app.nodeInfoDiv.innerHTML = "";
+        emptyNodeInfoDiv();
         const selectedNodeEdges = app.chain.getNodeEdgesById(selectedNode.id);
         console.log(selectedNodeEdges);
         let edgeDiv;
@@ -338,7 +346,6 @@ function updateNodeFromInput() {
     for (const edgeProbDiv of edgeProbDivs) {
         edgeId = edgeProbDiv.id;
         edgeProbability = parseFloat(edgeProbDiv.value);
-        console.log(edgeId, edgeProbability);
         app.chain.updateEdgeProbabilityById(edgeId, edgeProbability);
     }
 }
