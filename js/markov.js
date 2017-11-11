@@ -125,7 +125,8 @@ class MarkovChain {
                 }
             }
         }else {
-            throw new Error("Edge probabilities of a specified node must sum up to 1!");
+            return false;
+            // throw new Error("Edge probabilities of a specified node must sum up to 1!");
         }
     }
     deselectAllNodes() {
@@ -133,13 +134,15 @@ class MarkovChain {
     }
     update() {
         const nextNodeId = this.getNextNodeId();
-        const nextNode = this.getNodeById(nextNodeId);
-
-        this.deselectAllNodes();
-        nextNode.isSelected = true;
-
-        this.currentNodeId = nextNodeId;
-        return nextNode.label;
+        if (nextNodeId) {
+            const nextNode = this.getNodeById(nextNodeId);
+            this.deselectAllNodes();
+            nextNode.isSelected = true;
+            this.currentNodeId = nextNodeId;
+            return nextNode.label;
+        }else {
+            this.reset();
+        }
     }
     reset() {
         this.deselectAllNodes();
@@ -163,11 +166,15 @@ const app = {
         currentIndicatorRadius: 10,
         defaultIndicatorColor: "red",
         defaultIndicatorTextSize: 10,
+        displayIndicators: true,
+        graphicalSimulationInterval: 250,
+        displayNodeLabels: false,
     },
     state: {
         currentNodeCounter: 0,
-        mode: 0,
+        mode: 1,
         isShiftDown: false,
+        chainRunId: null,
     },
     chain: new MarkovChain(),
 }
@@ -208,38 +215,13 @@ function handleClick(e) {
     }
 }
 
-// function createOneWayConnection() {
-//     const selectedNodes = app.chain.getSelectedNodes();
-//     if (selectedNodes.length === 1) {
-//         const edge = new MarkovEdge(selectedNodes[0], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
-//         if (!app.chain.isDuplicateEdge(edge)) {
-//             app.chain.addEdge(edge);
-//         } else {
-//             throw new Error("Edge already exists!");
-//         }
-//     } else if (selectedNodes.length === 2) {
-//         const edge = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
-//         if (!app.chain.isDuplicateEdge(edge)) {
-//             app.chain.addEdge(edge);
-//         }else {
-//             throw new Error("Edge already exists!");
-//         }
-//     }else {
-//         throw new Error("One or two nodes have to be selected for one-way connection!");
-//     }
-// }
+function toggleEdgeIndicators() {
+    app.settings.displayIndicators = !app.settings.displayIndicators;
+}
 
-// function createTwoWayConnection() {
-//     const selectedNodes = app.chain.getSelectedNodes();
-//     if (selectedNodes.length === 2) {
-//         const edge1 = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
-//         const edge2 = new MarkovEdge(selectedNodes[1], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
-//         app.chain.addEdge(edge1);
-//         app.chain.addEdge(edge2);
-//     }else {
-//         throw new Error("Precisely two nodes have to be selected for two-way connection!");
-//     }
-// }
+function toggleNodeLabels() {
+    app.settings.displayNodeLabels = !app.settings.displayNodeLabels;
+}
 
 function handleKeyboardCommands(e) {
     console.log(e.keyCode);
@@ -253,6 +235,14 @@ function handleKeyboardCommands(e) {
             displaySelectedNodeInfo();
         }else if(code === 85) {//u: update selected node from input
             updateNodeFromInput();
+        }else if(code === 78) {//n: toggle edge indicators
+            toggleEdgeIndicators();
+        }else if(code === 82) {//r: run graphical simulation
+            startGraphicalSimulation(app.settings.graphicalSimulationInterval);
+        }else if(code === 83) {//s: stop graphical simulation
+            stopGraphicalSimulation();
+        }else if(code === 76) {//l: toggle node labels
+            toggleNodeLabels();
         }
     }else if (code === 17) {//lctrl: change mode
         //implement function to change mode
@@ -289,6 +279,7 @@ function clearCanvas(canvas, context) {
 
 
 function renderNodes(context, nodes) {
+    let nodeText;
     nodes.forEach(node => {
         //Render node:
         context.fillStyle = node.isSelected ? app.settings.selectedNodeColor : app.settings.defaultNodeColor;
@@ -297,11 +288,12 @@ function renderNodes(context, nodes) {
         context.fill();
         context.closePath();
         
-        //Display node id:
+        //Display node id or node label:
+        nodeText = app.settings.displayNodeLabels ? node.label : node.id;
         context.fillStyle = node.isSelected ? app.settings.selectedNodeIdColor : app.settings.defaultNodeIdColor;
         context.textAlign = "center";
         context.font = app.settings.defaultNodeIdSize + "px Arial";
-        context.fillText(node.id, node.x, node.y + app.settings.defaultNodeIdSize / 3);
+        context.fillText(nodeText, node.x, node.y + app.settings.defaultNodeIdSize / 3);
     });
 }
 
@@ -340,7 +332,7 @@ function renderEdgeIndicators(context, nodes, edges) {
         }
         context.fill();
         context.closePath();
-
+        
         //Display edge probability:
         context.fillStyle = startNode.isSelected ? app.settings.selectedNodeIdColor : app.settings.defaultNodeIdColor;
         context.textAlign = "center";
@@ -351,6 +343,20 @@ function renderEdgeIndicators(context, nodes, edges) {
             context.fillText(edge.probability, startNode.x, startNode.y - app.settings.currentNodeRadius);
         }
     });    
+}
+
+function renderChain(context, chain) {
+    renderEdges(context, chain.nodes, chain.edges);
+    renderNodes(context, chain.nodes);
+    if (app.settings.displayIndicators) {
+        renderEdgeIndicators(context, chain.nodes, chain.edges);
+    }
+}
+
+function mainLoop(time = 0) {
+    window.requestAnimationFrame(mainLoop);
+    clearCanvas(app.canvas, app.ctx);
+    renderChain(app.ctx, app.chain);
 }
 
 function emptyNodeInfoDiv() {
@@ -398,28 +404,20 @@ function updateNodeFromInput() {
     }
 }
 
-function renderChain(context, chain) {
-    renderEdges(context, chain.nodes, chain.edges);
-    renderNodes(context, chain.nodes);
-    renderEdgeIndicators(context, chain.nodes, chain.edges);
-}
-
-function mainLoop(time = 0) {
-    window.requestAnimationFrame(mainLoop);
-    clearCanvas(app.canvas, app.ctx);
-    renderChain(app.ctx, app.chain);
-}
-
 function saveCurrentChain() {
     const chainLabel = app.chain.label;
     const chainJSON = JSON.stringify([...app.chain.nodes, ...app.chain.edges]);
     localStorage.setItem(chainLabel, chainJSON);
 }
 
-function saveCurrentChainAs(label) {
-    const chainLabel = label;
-    const chainJSON = JSON.stringify([...app.chain.nodes, ...app.chain.edges]);
-    localStorage.setItem(chainLabel, chainJSON);
+function saveCurrentChainAs(label, force = false) {
+    if (!localStorage.getItem(label) || force) {
+        const chainLabel = label;
+        const chainJSON = JSON.stringify([...app.chain.nodes, ...app.chain.edges]);
+        localStorage.setItem(chainLabel, chainJSON);
+    }else {
+        throw new Error("A chain already exists with that label in database!");
+    }
 }
 
 function setNodeCounter() {
@@ -441,6 +439,18 @@ function loadChainByLabel(chainLabel) {
     setNodeCounter();
 }
 
+function startGraphicalSimulation(interval) {
+    app.state.chainRunId = setInterval(function() {
+        app.chain.update();
+    }, interval);
+}
+
+function stopGraphicalSimulation() {
+    clearInterval(app.state.chainRunId);
+    app.chain.reset();
+}
+
+loadChainByLabel("RPS");
 initEventListeners();
 mainLoop();
 
