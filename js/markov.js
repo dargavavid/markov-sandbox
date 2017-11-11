@@ -19,6 +19,7 @@ class MarkovEdge {
         this.probability = probability;
         this.isSelected = 0;
         this.selectionDate = null;
+        this.isSelfReferencing = false;
     }
 }
 
@@ -48,6 +49,7 @@ class MarkovChain {
         const selectedNodes = this.getSelectedNodes();
         if (selectedNodes.length === 1) {
             const edge = new MarkovEdge(selectedNodes[0], selectedNodes[0], 0.5);
+            edge.isSelfReferencing = true;
             this.addEdge(edge);
         }else if (selectedNodes.length === 2) {
             const edge = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5);
@@ -179,38 +181,38 @@ function handleClick(e) {
     }
 }
 
-function createOneWayConnection() {
-    const selectedNodes = app.chain.getSelectedNodes();
-    if (selectedNodes.length === 1) {
-        const edge = new MarkovEdge(selectedNodes[0], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
-        if (!app.chain.isDuplicateEdge(edge)) {
-            app.chain.addEdge(edge);
-        } else {
-            throw new Error("Edge already exists!");
-        }
-    } else if (selectedNodes.length === 2) {
-        const edge = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
-        if (!app.chain.isDuplicateEdge(edge)) {
-            app.chain.addEdge(edge);
-        }else {
-            throw new Error("Edge already exists!");
-        }
-    }else {
-        throw new Error("One or two nodes have to be selected for one-way connection!");
-    }
-}
+// function createOneWayConnection() {
+//     const selectedNodes = app.chain.getSelectedNodes();
+//     if (selectedNodes.length === 1) {
+//         const edge = new MarkovEdge(selectedNodes[0], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
+//         if (!app.chain.isDuplicateEdge(edge)) {
+//             app.chain.addEdge(edge);
+//         } else {
+//             throw new Error("Edge already exists!");
+//         }
+//     } else if (selectedNodes.length === 2) {
+//         const edge = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
+//         if (!app.chain.isDuplicateEdge(edge)) {
+//             app.chain.addEdge(edge);
+//         }else {
+//             throw new Error("Edge already exists!");
+//         }
+//     }else {
+//         throw new Error("One or two nodes have to be selected for one-way connection!");
+//     }
+// }
 
-function createTwoWayConnection() {
-    const selectedNodes = app.chain.getSelectedNodes();
-    if (selectedNodes.length === 2) {
-        const edge1 = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
-        const edge2 = new MarkovEdge(selectedNodes[1], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
-        app.chain.addEdge(edge1);
-        app.chain.addEdge(edge2);
-    }else {
-        throw new Error("Precisely two nodes have to be selected for two-way connection!");
-    }
-}
+// function createTwoWayConnection() {
+//     const selectedNodes = app.chain.getSelectedNodes();
+//     if (selectedNodes.length === 2) {
+//         const edge1 = new MarkovEdge(selectedNodes[0], selectedNodes[1], 0.5, app.settings.defaultEdgeColor);
+//         const edge2 = new MarkovEdge(selectedNodes[1], selectedNodes[0], 0.5, app.settings.defaultEdgeColor);
+//         app.chain.addEdge(edge1);
+//         app.chain.addEdge(edge2);
+//     }else {
+//         throw new Error("Precisely two nodes have to be selected for two-way connection!");
+//     }
+// }
 
 function handleKeyboardCommand(e) {
     console.log(e.keyCode);
@@ -278,11 +280,15 @@ function renderEdgeIndicators(context, nodes, edges) {
         goalNode = nodes.filter(node => node.id === edge.goalNodeId)[0];
 
         //Render edge indicator:
-        distX = (goalNode.x - startNode.x) / 3;
-        distY = (goalNode.y - startNode.y) / 3;
         context.fillStyle = startNode.isSelected ? app.settings.selectedNodeColor : app.settings.defaultNodeColor;
         context.beginPath();
-        context.arc(startNode.x + distX, startNode.y + distY, app.settings.currentIndicatorRadius, 0, Math.PI * 2);
+        if (!edge.isSelfReferencing) {
+            distX = (goalNode.x - startNode.x) / 3;
+            distY = (goalNode.y - startNode.y) / 3;
+            context.arc(startNode.x + distX, startNode.y + distY, app.settings.currentIndicatorRadius, 0, Math.PI * 2);
+        }else {
+            context.arc(startNode.x, startNode.y - app.settings.currentNodeRadius , app.settings.currentIndicatorRadius, 0, Math.PI * 2);
+        }
         context.fill();
         context.closePath();
 
@@ -290,8 +296,16 @@ function renderEdgeIndicators(context, nodes, edges) {
         context.fillStyle = startNode.isSelected ? app.settings.selectedNodeIdColor : app.settings.defaultNodeIdColor;
         context.textAlign = "center";
         context.font = app.settings.defaultIndicatorTextSize + "px Arial";
-        context.fillText(edge.probability, startNode.x + distX, startNode.y + distY + app.settings.currentIndicatorRadius / 3);
+        if (!edge.isSelfReferencing) {
+            context.fillText(edge.probability, startNode.x + distX, startNode.y + distY + app.settings.currentIndicatorRadius / 3);
+        }else {
+            context.fillText(edge.probability, startNode.x, startNode.y - app.settings.currentNodeRadius);
+        }
     });    
+}
+
+function displayNodeInfo() {
+    
 }
 
 function renderChain(context, chain) {
