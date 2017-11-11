@@ -268,6 +268,14 @@ function renderEdges(context, nodes, edges) {
         context.lineTo(goalNode.x, goalNode.y);
         context.stroke();
         context.closePath();
+    });
+}
+
+function renderEdgeIndicators(context, nodes, edges) {
+    let startNode, goalNode, distX, distY, slope, indicatorDist;
+    edges.forEach(edge => {
+        startNode = nodes.filter(node => node.id === edge.startNodeId)[0];
+        goalNode = nodes.filter(node => node.id === edge.goalNodeId)[0];
 
         //Render edge indicator:
         distX = (goalNode.x - startNode.x) / 3;
@@ -283,12 +291,13 @@ function renderEdges(context, nodes, edges) {
         context.textAlign = "center";
         context.font = app.settings.defaultIndicatorTextSize + "px Arial";
         context.fillText(edge.probability, startNode.x + distX, startNode.y + distY + app.settings.currentIndicatorRadius / 3);
-    });
+    });    
 }
 
 function renderChain(context, chain) {
     renderEdges(context, chain.nodes, chain.edges);
     renderNodes(context, chain.nodes);
+    renderEdgeIndicators(context, chain.nodes, chain.edges);
 }
 
 function mainLoop(time = 0) {
