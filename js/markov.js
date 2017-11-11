@@ -42,6 +42,13 @@ class MarkovChain {
             throw new Error("Edge already exists!");
         }
     }
+    getEdgeById(edgeId) {
+        return this.edges.filter(edge => edge.id === edgeId)[0];
+    }
+    updateEdgeProbabilityById(edgeId, newProbability) {
+        const targetEdge = this.getEdgeById(edgeId);
+        targetEdge.probability = newProbability;
+    }
     getSelectedNodes() {
         return this.nodes.filter(node => node.isSelected).sort((a, b) => a.selectionDate > b.selectionDate ? 1 : 0);
     }
@@ -97,7 +104,7 @@ class MarkovChain {
         });
     }
     getNodeEdgesById(nodeId) {
-        return this.edges.filter(edge => edge.id.split("+")[0] === this.currentNodeId);
+        return this.edges.filter(edge => edge.id.split("+")[0] === nodeId);
     }
     getNextNodeId() {
         const currentNodeEdges = this.getNodeEdgesById(this.currentNodeId);
@@ -124,6 +131,7 @@ class MarkovChain {
 const app = {
     canvas: document.querySelector("#canvas"),
     ctx: this.canvas.getContext("2d"),
+    nodeInfoDiv: document.querySelector(".node-info"),
     settings: {
         currentNodeRadius: 20,
         defaultNodeColor: "black",
@@ -230,7 +238,7 @@ function handleKeyboardCommand(e) {
 }
 
 function initEventListeners() {
-    document.addEventListener("click", handleClick, false);
+    app.canvas.addEventListener("click", handleClick, false);
     document.addEventListener("keydown", handleKeyboardCommand, false);
 }
 
@@ -304,8 +312,35 @@ function renderEdgeIndicators(context, nodes, edges) {
     });    
 }
 
-function displayNodeInfo() {
-    
+function displaySelectedNodeInfo() {
+    const selectedNode = app.chain.getSelectedNodes()[0];
+    console.log(selectedNode)
+    if (selectedNode) {
+        app.nodeInfoDiv.innerHTML = "";
+        const selectedNodeEdges = app.chain.getNodeEdgesById(selectedNode.id);
+        console.log(selectedNodeEdges);
+        let edgeDiv;
+        for (const edge of selectedNodeEdges) {
+            edgeDiv = document.createElement("div");
+            edgeDiv.classList.add("edge");
+            edgeDiv.innerHTML = `
+                <div class="edge-id">${edge.id}</div>
+                <input type="text" id="${edge.id}" class="edge-probability" value=${edge.probability}>
+            `;
+            app.nodeInfoDiv.append(edgeDiv);
+        }
+    }
+}
+
+function updateNodeFromInput() {
+    const edgeProbDivs = document.querySelectorAll(".edge-probability");
+    let edgeId, edgeProbability;
+    for (const edgeProbDiv of edgeProbDivs) {
+        edgeId = edgeProbDiv.id;
+        edgeProbability = parseFloat(edgeProbDiv.value);
+        console.log(edgeId, edgeProbability);
+        app.chain.updateEdgeProbabilityById(edgeId, edgeProbability);
+    }
 }
 
 function renderChain(context, chain) {
