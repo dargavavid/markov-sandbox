@@ -35,6 +35,13 @@ class MarkovChain {
     addNode(node) {
         this.nodes.push(node);
     }
+    getNodeById(nodeId) {
+        return this.nodes.filter(node => node.id === nodeId)[0];
+    }
+    updateNodeLabelById(nodeId, newLabel) {
+        const targetNode = this.getNodeById(nodeId);
+        targetNode.label = newLabel;
+    }
     addEdge(edge) {
         if (!this.isDuplicateEdge(edge)) {
             this.edges.push(edge);
@@ -121,10 +128,22 @@ class MarkovChain {
             throw new Error("Edge probabilities of a specified node must sum up to 1!");
         }
     }
+    deselectAllNodes() {
+        this.nodes.forEach(node => node.isSelected = false);
+    }
     update() {
         const nextNodeId = this.getNextNodeId();
-        console.log(nextNodeId);
+        const nextNode = this.getNodeById(nextNodeId);
+
+        this.deselectAllNodes();
+        nextNode.isSelected = true;
+
         this.currentNodeId = nextNodeId;
+        return nextNode.label;
+    }
+    reset() {
+        this.deselectAllNodes();
+        this.currentNodeId = "0";
     }
 }
 
@@ -148,6 +167,7 @@ const app = {
     state: {
         currentNodeCounter: 0,
         mode: 0,
+        isShiftDown: false,
     },
     chain: new MarkovChain(),
 }
@@ -160,9 +180,7 @@ function createNode(e) {
 }
 
 function deselectAllNodes() {
-    for (const node of app.chain.nodes) {
-        node.isSelected = 0;
-    }
+    app.chain.deselectAllNodes();
 }
 
 function detectAndHandleNodeSelection(e) {
@@ -223,28 +241,46 @@ function handleClick(e) {
 //     }
 // }
 
-function handleKeyboardCommand(e) {
+function handleKeyboardCommands(e) {
     console.log(e.keyCode);
     const code = e.keyCode;
-    if (code === 69) {//e: one-way connection
-        app.chain.createOneWayConnection();
-    }else if (code === 68) {//d: two-way connection
-        app.chain.createTwoWayConnection();
+    if (app.state.isShiftDown) {
+        if (code === 69) {//e: one-way connection
+            app.chain.createOneWayConnection();
+        }else if (code === 68) {//d: two-way connection
+            app.chain.createTwoWayConnection();
+        }else if(code === 73) {//i: display selected node's info
+            displaySelectedNodeInfo();
+        }else if(code === 85) {//u: update selected node from input
+            updateNodeFromInput();
+        }
     }else if (code === 17) {//lctrl: change mode
         //implement function to change mode
         app.state.mode ^= 1;
     }else if (code === 46) {//delete: delete selected nodes and edges
         app.chain.deleteSelectedNodesAndRelatedEdges();
-    }else if(code === 73) {//i: display selected node's info
-        displaySelectedNodeInfo();
-    }else if(code === 85) {//u: update selected node from input
-        updateNodeFromInput();
+    }
+}
+
+function handleShiftDown(e) {
+    const code = e.keyCode;
+    if (code === 16) {
+        app.state.isShiftDown = true;
+    }
+}
+
+function handleShiftUp(e) {
+    const code = e.keyCode;
+    if (code === 16) {
+        app.state.isShiftDown = false;
     }
 }
 
 function initEventListeners() {
     app.canvas.addEventListener("click", handleClick, false);
-    document.addEventListener("keydown", handleKeyboardCommand, false);
+    document.addEventListener("keydown", handleKeyboardCommands, false);
+    document.addEventListener("keydown", handleShiftDown, false);
+    document.addEventListener("keyup", handleShiftUp, false);
 }
 
 function clearCanvas(canvas, context) {
@@ -326,7 +362,13 @@ function displaySelectedNodeInfo() {
     if (selectedNode) {
         emptyNodeInfoDiv();
         const selectedNodeEdges = app.chain.getNodeEdgesById(selectedNode.id);
-        console.log(selectedNodeEdges);
+
+        let nodeLabelDiv = document.createElement("input");
+        nodeLabelDiv.id = selectedNode.id;
+        nodeLabelDiv.classList.add("node-label");
+        nodeLabelDiv.value = selectedNode.label;
+        app.nodeInfoDiv.append(nodeLabelDiv);
+
         let edgeDiv;
         for (const edge of selectedNodeEdges) {
             edgeDiv = document.createElement("div");
@@ -341,11 +383,17 @@ function displaySelectedNodeInfo() {
 }
 
 function updateNodeFromInput() {
+    const nodeLabel = document.querySelector(".node-label");
     const edgeProbDivs = document.querySelectorAll(".edge-probability");
+    
+    let nodeId = nodeLabel.id;
+    let nodeLabelVal = nodeLabel.value;
+    app.chain.updateNodeLabelById(nodeId, nodeLabelVal);
+    
     let edgeId, edgeProbability;
-    for (const edgeProbDiv of edgeProbDivs) {
-        edgeId = edgeProbDiv.id;
-        edgeProbability = parseFloat(edgeProbDiv.value);
+    for (let i = 0; i < edgeProbDivs.length; i++) {
+        edgeId = edgeProbDivs[i].id;
+        edgeProbability = parseFloat(edgeProbDivs[i].value);
         app.chain.updateEdgeProbabilityById(edgeId, edgeProbability);
     }
 }
@@ -360,6 +408,37 @@ function mainLoop(time = 0) {
     window.requestAnimationFrame(mainLoop);
     clearCanvas(app.canvas, app.ctx);
     renderChain(app.ctx, app.chain);
+}
+
+function saveCurrentChain() {
+    const chainLabel = app.chain.label;
+    const chainJSON = JSON.stringify([...app.chain.nodes, ...app.chain.edges]);
+    localStorage.setItem(chainLabel, chainJSON);
+}
+
+function saveCurrentChainAs(label) {
+    const chainLabel = label;
+    const chainJSON = JSON.stringify([...app.chain.nodes, ...app.chain.edges]);
+    localStorage.setItem(chainLabel, chainJSON);
+}
+
+function setNodeCounter() {
+    const currentIds = app.chain.nodes.map(node => parseInt(node.id));
+    const currentMaxId = Math.max(...currentIds);
+    app.state.currentNodeCounter = currentMaxId + 1;
+}
+
+function getChainByLabel(chainLabel) {
+    const chainJSON = localStorage.getItem(chainLabel);
+    const chainElements = JSON.parse(chainJSON);
+    const chainNodes = chainElements.filter(element => element.constructorName === "MarkovNode");
+    const chainEdges = chainElements.filter(element => element.constructorName === "MarkovEdge");
+    return new MarkovChain(chainNodes, chainEdges);
+}
+
+function loadChainByLabel(chainLabel) {
+    app.chain = getChainByLabel(chainLabel);
+    setNodeCounter();
 }
 
 initEventListeners();
