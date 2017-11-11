@@ -102,17 +102,19 @@ const app = {
     settings: {
         currentNodeRadius: 20,
         defaultNodeColor: "black",
-        defaultEdgeColor: "yellow",
+        defaultEdgeWidth: 2,
+        defaultEdgeColor: "white",
         selectedNodeColor: "white",
         defaultNodeIdColor: "white",
         selectedNodeIdColor: "black",
         defaultNodeIdSize: 15,
-        indicatorRadius: 5,
-        defaultIndicatorColor: "black"
+        currentIndicatorRadius: 10,
+        defaultIndicatorColor: "black",
+        defaultIndicatorTextSize: 10,
     },
     state: {
         currentNodeId: 0,
-        mode: 1,
+        mode: 0,
     },
     chain: new MarkovChain(),
 }
@@ -195,6 +197,7 @@ function handleKeyboardCommand(e) {
         app.chain.createTwoWayConnection();
     }else if (code === 17) {//lctrl: change mode
         //implement function to change mode
+        app.state.mode ^= 1;
     }else if (code === 46) {//delete: delete selected nodes and edges
         app.chain.deleteSelectedNodesAndRelatedEdges();
     }
@@ -223,18 +226,19 @@ function renderNodes(context, nodes) {
         context.fillStyle = node.isSelected ? app.settings.selectedNodeIdColor : app.settings.defaultNodeIdColor;
         context.textAlign = "center";
         context.font = app.settings.defaultNodeIdSize + "px Arial";
-        context.fillText(node.id, node.x, node.y + app.settings.defaultNodeIdSize/3);
+        context.fillText(node.id, node.x, node.y + app.settings.defaultNodeIdSize / 3);
     });
 }
 
 function renderEdges(context, nodes, edges) {
-    let startNode, goalNode, distX, distY;
+    let startNode, goalNode, distX, distY, slope, indicatorDist;
     edges.forEach(edge => {
         startNode = nodes.filter(node => node.id === edge.startNodeId)[0];
         goalNode = nodes.filter(node => node.id === edge.goalNodeId)[0];
 
         //Render edge:
         context.strokeStyle = app.settings.defaultEdgeColor;
+        context.lineWidth = app.settings.defaultEdgeWidth;
         context.beginPath();
         context.moveTo(startNode.x, startNode.y);
         context.lineTo(goalNode.x, goalNode.y);
@@ -242,13 +246,19 @@ function renderEdges(context, nodes, edges) {
         context.closePath();
 
         //Render edge indicator:
-        distX = (goalNode.x - startNode.x) / 4;
-        distY = (goalNode.y - startNode.y) / 4;
+        distX = (goalNode.x - startNode.x) / 3;
+        distY = (goalNode.y - startNode.y) / 3;
         context.fillStyle = startNode.isSelected ? app.settings.selectedNodeColor : app.settings.defaultNodeColor;
         context.beginPath();
-        context.arc(startNode.x + distX, startNode.y + distY, app.settings.indicatorRadius, 0, Math.PI * 2);
+        context.arc(startNode.x + distX, startNode.y + distY, app.settings.currentIndicatorRadius, 0, Math.PI * 2);
         context.fill();
         context.closePath();
+
+        //Display edge probability:
+        context.fillStyle = startNode.isSelected ? app.settings.selectedNodeIdColor : app.settings.defaultNodeIdColor;
+        context.textAlign = "center";
+        context.font = app.settings.defaultIndicatorTextSize + "px Arial";
+        context.fillText(edge.probability, startNode.x + distX, startNode.y + distY + app.settings.currentIndicatorRadius / 3);
     });
 }
 
@@ -266,8 +276,9 @@ function mainLoop(time = 0) {
 initEventListeners();
 mainLoop();
 
-const n1 = new MarkovNode(50, 100, app.settings.currentNodeRadius, 0);
-const n2 = new MarkovNode(200, 50, app.settings.currentNodeRadius, 1);
-app.chain.addNode(n1);
-app.chain.addNode(n2);
+
+// const n1 = new MarkovNode(200, 100, app.settings.currentNodeRadius, 0);
+// const n2 = new MarkovNode(50, 200, app.settings.currentNodeRadius, 1);
+// app.chain.addNode(n1);
+// app.chain.addNode(n2);
 // app.chain.addEdge(new MarkovEdge(n1, n2, 0.5, "yellow"));
