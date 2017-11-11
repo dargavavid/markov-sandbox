@@ -26,7 +26,7 @@ class MarkovChain {
     constructor(nodes = [], edges = [], settings = {}) {
         this.constructorName = "MarkovChain";
         this.label = "";
-        this.currentNode = 0;
+        this.currentNodeId = "0";
         this.nodes = nodes;
         this.edges = edges;
         this.settings = settings;
@@ -94,6 +94,29 @@ class MarkovChain {
             return true;
         });
     }
+    getNodeEdgesById(nodeId) {
+        return this.edges.filter(edge => edge.id.split("+")[0] === this.currentNodeId);
+    }
+    getNextNodeId() {
+        const currentNodeEdges = this.getNodeEdgesById(this.currentNodeId);
+        const pSum = currentNodeEdges.reduce((sum, edge) => sum += edge.probability, 0);
+        if (pSum === 1) {
+            let roll = Math.random();
+            for (const edge of currentNodeEdges) {
+                roll -= edge.probability;
+                if (roll <= 0) {
+                    return edge.goalNodeId;
+                }
+            }
+        }else {
+            throw new Error("Edge probabilities of a specified node must sum up to 1!");
+        }
+    }
+    update() {
+        const nextNodeId = this.getNextNodeId();
+        console.log(nextNodeId);
+        this.currentNodeId = nextNodeId;
+    }
 }
 
 const app = {
@@ -109,20 +132,21 @@ const app = {
         selectedNodeIdColor: "black",
         defaultNodeIdSize: 15,
         currentIndicatorRadius: 10,
-        defaultIndicatorColor: "black",
+        defaultIndicatorColor: "red",
         defaultIndicatorTextSize: 10,
     },
     state: {
-        currentNodeId: 0,
+        currentNodeCounter: 0,
         mode: 0,
     },
     chain: new MarkovChain(),
 }
-
+ 
 function createNode(e) {
     const x = e.clientX, y = e.clientY;
-    app.state.currentNodeId++;
-    return new MarkovNode(x, y, app.settings.currentNodeRadius, app.state.currentNodeId, app.settings.defaultNodeColor);
+    const node = new MarkovNode(x, y, app.settings.currentNodeRadius, app.state.currentNodeCounter.toString())
+    app.state.currentNodeCounter++;
+    return node;
 }
 
 function deselectAllNodes() {
